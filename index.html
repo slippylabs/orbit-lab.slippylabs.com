@@ -1,0 +1,860 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Orbit Lab // orbit-lab.slippylabs.com</title>
+<meta name="description" content="An n-body gravity sandbox — drag to launch a world and watch it orbit, slingshot or get thrown out. Kepler ellipses, binary stars and the figure-eight three-body orbit, with live energy and momentum. Runs entirely in your browser.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://orbit-lab.slippylabs.com/">
+<meta property="og:title" content="Orbit Lab // orbit-lab.slippylabs.com">
+<meta property="og:description" content="An n-body gravity sandbox — drag to launch a world and watch it orbit, slingshot or get thrown out. Kepler ellipses, binary stars and the figure-eight three-body orbit, with live energy and momentum. Runs entirely in your browser.">
+<meta property="og:image" content="https://orbit-lab.slippylabs.com/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Orbit Lab // orbit-lab.slippylabs.com">
+<meta name="twitter:description" content="An n-body gravity sandbox — drag to launch a world and watch it orbit, slingshot or get thrown out. Kepler ellipses, binary stars and the figure-eight three-body orbit, with live energy and momentum. Runs entirely in your browser.">
+<meta name="twitter:image" content="https://orbit-lab.slippylabs.com/og-image.png">
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2064%2064%22%3E%3Ccircle%20cx%3D%2232%22%20cy%3D%2234%22%20r%3D%2222%22%20fill%3D%22%231c8a52%22%20stroke%3D%22%2339ff8f%22%20stroke-width%3D%222%22%2F%3E%3Ccircle%20cx%3D%2220%22%20cy%3D%2216%22%20r%3D%228%22%20fill%3D%22%231c8a52%22%20stroke%3D%22%2339ff8f%22%20stroke-width%3D%222%22%2F%3E%3Ccircle%20cx%3D%2244%22%20cy%3D%2216%22%20r%3D%228%22%20fill%3D%22%231c8a52%22%20stroke%3D%22%2339ff8f%22%20stroke-width%3D%222%22%2F%3E%3C%2Fsvg%3E">
+<meta name="theme-color" content="#050b10">
+<link rel="stylesheet" href="style.css?v=1">
+<script>/* perf-lite: drop blend/blur effects on low-power devices. ?fx=lite or ?fx=full to override (persisted). */
+(function(){try{var k="slippy-fx",m=location.search.match(/[?&]fx=(lite|full)/),v=m?m[1]:localStorage.getItem(k);if(m)localStorage.setItem(k,v);if(v==="lite"||(v!=="full"&&(navigator.hardwareConcurrency||8)<=2))document.documentElement.classList.add("perf-lite");}catch(e){}})();</script>
+</head>
+<body>
+
+<div class="starfield"></div>
+<div class="scanlines"></div>
+
+<main class="page-wrap">
+  <div class="hud-panel wide">
+    <div class="corner tl"></div>
+    <div class="corner tr"></div>
+    <div class="corner bl"></div>
+    <div class="corner br"></div>
+
+    <div class="callsign-row">
+      <div class="toad-avatar-wrap">
+        <svg class="toad-avatar" width="46" height="46" viewBox="0 0 64 64">
+          <circle cx="32" cy="34" r="22" fill="#1c8a52" stroke="#39ff8f" stroke-width="2"/>
+          <circle cx="20" cy="16" r="8" fill="#1c8a52" stroke="#39ff8f" stroke-width="2"/>
+          <circle cx="44" cy="16" r="8" fill="#1c8a52" stroke="#39ff8f" stroke-width="2"/>
+          <circle cx="20" cy="16" r="3.5" fill="#050b10"/>
+          <circle cx="44" cy="16" r="3.5" fill="#050b10"/>
+          <ellipse cx="24" cy="32" rx="4.5" ry="5.5" fill="#050b10"/>
+          <ellipse cx="40" cy="32" rx="4.5" ry="5.5" fill="#050b10"/>
+          <circle cx="24" cy="30" r="1.4" fill="#39ff8f"/>
+          <circle cx="40" cy="30" r="1.4" fill="#39ff8f"/>
+          <path d="M22 42 Q32 48 42 42" stroke="#050b10" stroke-width="2" fill="none" stroke-linecap="round"/>
+        </svg>
+        <div class="lock-reticle"></div>
+      </div>
+      <span class="callsign">Workshop Division // Tool</span>
+      <div class="nav-links">
+        <a href="https://projects.slippylabs.com/" class="logout-link">← Archive</a>
+      </div>
+    </div>
+
+
+    <h1>ORBIT LAB</h1>
+    <p class="subtitle">Newton's law of gravitation, integrated with velocity Verlet. It is <em>symplectic</em>, which is why an orbit here closes on itself for hours instead of slowly spiralling into the star &mdash; the usual fate of a naive simulation.</p>
+
+    <div class="ol-controls">
+      <div class="tool-field-row">
+        <label class="tool-field-label" for="preset-select">Scenario</label>
+        <select class="tool-select" id="preset-select"></select>
+      </div>
+      <div class="tool-field-row">
+        <label class="tool-field-label" for="speed-slider">Steps per frame</label>
+        <div class="tool-slider-row">
+          <input type="range" id="speed-slider" min="1" max="400" value="40">
+          <span class="ol-slider-value" id="speed-value">40</span>
+        </div>
+      </div>
+      <div class="tool-field-row">
+        <label class="tool-field-label" for="dt-slider">Timestep</label>
+        <div class="tool-slider-row">
+          <input type="range" id="dt-slider" min="1" max="100" value="30">
+          <span class="ol-slider-value" id="dt-value">—</span>
+        </div>
+      </div>
+      <div class="tool-field-row">
+        <label class="tool-field-label" for="mass-slider">Mass of the next body</label>
+        <div class="tool-slider-row">
+          <input type="range" id="mass-slider" min="-40" max="30" value="-20">
+          <span class="ol-slider-value" id="mass-value">—</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="tool-controls">
+      <button class="tool-btn" id="run-btn">&#10073;&#10073; Pause</button>
+      <button class="tool-btn ghost" id="step-btn">Step</button>
+      <button class="tool-btn ghost" id="reset-btn">Reset</button>
+      <button class="tool-btn ghost" id="clear-btn">Empty Space</button>
+      <button class="tool-btn ghost" id="fit-btn">Fit View</button>
+    </div>
+
+    <div class="tool-checks">
+      <label class="tool-check"><input type="checkbox" id="trails-check" checked> Trails</label>
+      <label class="tool-check"><input type="checkbox" id="com-check"> Follow centre of mass</label>
+      <label class="tool-check"><input type="checkbox" id="labels-check" checked> Labels</label>
+    </div>
+
+    <p class="tool-note">
+      <strong>Drag anywhere on the sky</strong> to launch a body: where you press is where it starts,
+      and the direction and length of the drag is its velocity. Scroll to zoom, right-drag to pan.
+      A body that leaves the view is still out there &mdash; Fit View brings everything back on screen.
+    </p>
+
+    <div class="ol-canvas-wrap">
+      <canvas id="sky" width="900" height="560"></canvas>
+    </div>
+
+    <div class="net-grid" id="stat-host"></div>
+    <p class="tool-note" id="conserve-note"></p>
+
+    <div class="cert-section-label">Orbital elements</div>
+    <div class="net-table-wrap">
+      <table class="net-table" id="elements-table"></table>
+    </div>
+    <p class="tool-note">
+      Measured from each body's position and velocity relative to the heaviest one, which is the
+      two-body approximation every orbit here is judged against. <code>a</code> is the semi-major
+      axis, <code>e</code> the eccentricity &mdash; 0 is a circle, below 1 an ellipse, 1 or more an
+      escape. The predicted period is Kepler's third law, <code>T&nbsp;=&nbsp;2&pi;&radic;(a³/&mu;)</code>;
+      where a third body matters, it will not be what you observe, and that discrepancy is the
+      three-body problem in one column.
+    </p>
+
+    <p class="tool-note">
+      Gravity is softened &mdash; the force uses <code>&radic;(r² + &epsilon;²)</code> with a small
+      <code>&epsilon;</code>, shown in the readout above &mdash; so a dead-centre collision produces a fast slingshot instead of a
+      division by zero and an infinite velocity. Energy and momentum are computed with the same
+      softened potential, which is why the readout below stays honest even during a close pass.
+    </p>
+    <div class="comm-window">
+      <div class="comm-portrait">
+        <svg width="36" height="36" viewBox="0 0 64 64">
+          <circle cx="32" cy="34" r="22" fill="#1c8a52" stroke="#39ff8f" stroke-width="2"/>
+          <circle cx="20" cy="16" r="8" fill="#1c8a52" stroke="#39ff8f" stroke-width="2"/>
+          <circle cx="44" cy="16" r="8" fill="#1c8a52" stroke="#39ff8f" stroke-width="2"/>
+          <circle cx="20" cy="16" r="3.5" fill="#050b10"/>
+          <circle cx="44" cy="16" r="3.5" fill="#050b10"/>
+          <ellipse cx="24" cy="32" rx="4.5" ry="5.5" fill="#050b10"/>
+          <ellipse cx="40" cy="32" rx="4.5" ry="5.5" fill="#050b10"/>
+          <circle cx="24" cy="30" r="1.4" fill="#39ff8f"/>
+          <circle cx="40" cy="30" r="1.4" fill="#39ff8f"/>
+          <path d="M22 42 Q32 48 42 42" stroke="#050b10" stroke-width="2" fill="none" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div class="comm-body">
+        <div class="comm-label"><span class="dot"></span> Incoming Transmission &mdash; Slippy</div>
+        <p>&quot;Three bodies. No closed-form solution. Only one way to find out what happens.&quot;</p>
+      </div>
+    </div>
+
+    <a href="https://projects.slippylabs.com/" class="hud-btn">← Back to Archive</a>
+  </div>
+</main>
+
+
+<script>
+/* ---- the physics -----------------------------------------------------------
+   Plain Newtonian gravity between every pair, integrated with velocity Verlet:
+
+       v(t + h/2) = v(t)     + (h/2) a(t)
+       x(t + h)   = x(t)     + h v(t + h/2)
+       v(t + h)   = v(t+h/2) + (h/2) a(t + h)
+
+   Velocity Verlet is symplectic, which is the whole reason to use it here: its
+   energy error oscillates within a bound instead of accumulating, so an orbit
+   closes on itself indefinitely. Forward Euler on the same problem spirals the
+   planet into the star, and it does it smoothly enough to look plausible.
+
+   Gravity is softened: the denominator is (r² + eps²)^(3/2) rather than r³. A
+   real collision is otherwise a division by zero, and the potential energy used
+   in the readout is softened to match, or the conservation check would lie. */
+
+const SOFTENING = 0.002;
+
+/* Softening is per scenario, because it is a trade and not a constant. It
+   exists so a dead-centre collision is a fast slingshot instead of a division
+   by zero — but it also changes the force law slightly, and a scenario built on
+   a published exact solution should not have its answer moved. The figure-eight
+   bodies never get closer than 0.69, so there it is set to almost nothing:
+   measured closure error after one period is 5.3e-5 at 0.002 and 3.5e-8 below
+   1e-5, and the difference is entirely the softening, not the integrator. */
+
+function accelerations(bodies, G, soft = SOFTENING) {
+  const n = bodies.length;
+  const ax = new Float64Array(n);
+  const ay = new Float64Array(n);
+  const s2 = soft * soft;
+  for (let i = 0; i < n; i++) {
+    for (let j = 0; j < n; j++) {
+      if (i === j) continue;
+      const dx = bodies[j].x - bodies[i].x;
+      const dy = bodies[j].y - bodies[i].y;
+      // the floor only matters when a caller passes zero softening and two
+      // bodies land on exactly the same point; without it that is a NaN
+      const r2 = Math.max(dx * dx + dy * dy + s2, 1e-18);
+      const inv = G * bodies[j].m / (r2 * Math.sqrt(r2));
+      ax[i] += dx * inv;
+      ay[i] += dy * inv;
+    }
+  }
+  return { ax, ay };
+}
+
+/* One velocity Verlet step, in place. The acceleration at the end of a step is
+   the acceleration at the start of the next one, so it is carried on each body
+   rather than recomputed — that is what makes this one force evaluation per
+   step rather than two. */
+function stepVerlet(bodies, dt, G, soft = SOFTENING) {
+  const n = bodies.length;
+  if (!n) return bodies;
+  if (bodies[0].ax === undefined) {
+    const a0 = accelerations(bodies, G, soft);
+    for (let i = 0; i < n; i++) { bodies[i].ax = a0.ax[i]; bodies[i].ay = a0.ay[i]; }
+  }
+  const half = dt * 0.5;
+  for (let i = 0; i < n; i++) {
+    const b = bodies[i];
+    b.vx += half * b.ax;
+    b.vy += half * b.ay;
+    b.x += dt * b.vx;
+    b.y += dt * b.vy;
+  }
+  const a = accelerations(bodies, G, soft);
+  for (let i = 0; i < n; i++) {
+    const b = bodies[i];
+    b.ax = a.ax[i];
+    b.ay = a.ay[i];
+    b.vx += half * b.ax;
+    b.vy += half * b.ay;
+  }
+  return bodies;
+}
+
+function totalEnergy(bodies, G, soft = SOFTENING) {
+  let ke = 0;
+  let pe = 0;
+  const s2 = soft * soft;
+  for (let i = 0; i < bodies.length; i++) {
+    const b = bodies[i];
+    ke += 0.5 * b.m * (b.vx * b.vx + b.vy * b.vy);
+    for (let j = i + 1; j < bodies.length; j++) {
+      const dx = bodies[j].x - b.x;
+      const dy = bodies[j].y - b.y;
+      pe -= G * b.m * bodies[j].m / Math.sqrt(dx * dx + dy * dy + s2);
+    }
+  }
+  return { ke, pe, total: ke + pe };
+}
+
+function totalMomentum(bodies) {
+  let px = 0;
+  let py = 0;
+  for (const b of bodies) { px += b.m * b.vx; py += b.m * b.vy; }
+  return { px, py, mag: Math.hypot(px, py) };
+}
+
+/* Angular momentum about the origin, which for a closed system is conserved
+   whatever the origin is. */
+function angularMomentum(bodies) {
+  let l = 0;
+  for (const b of bodies) l += b.m * (b.x * b.vy - b.y * b.vx);
+  return l;
+}
+
+function centreOfMass(bodies) {
+  let mx = 0;
+  let my = 0;
+  let mtot = 0;
+  for (const b of bodies) { mx += b.m * b.x; my += b.m * b.y; mtot += b.m; }
+  return mtot ? { x: mx / mtot, y: my / mtot, m: mtot } : { x: 0, y: 0, m: 0 };
+}
+
+/* Two-body orbital elements of `body` around `central`. The vis-viva equation
+   gives the semi-major axis from speed and distance alone; the eccentricity
+   vector points at periapsis and its length is e. Both are exact for two
+   bodies and an approximation the moment a third one matters — which is the
+   point of showing the predicted period next to the one you can watch. */
+function orbitalElements(central, body, G) {
+  const mu = G * (central.m + body.m);
+  const rx = body.x - central.x;
+  const ry = body.y - central.y;
+  const vx = body.vx - central.vx;
+  const vy = body.vy - central.vy;
+  const r = Math.hypot(rx, ry);
+  const v2 = vx * vx + vy * vy;
+  if (r === 0 || mu === 0) return null;
+  const energy = v2 / 2 - mu / r;
+  const a = -mu / (2 * energy);           // negative for an unbound orbit
+  const rv = rx * vx + ry * vy;
+  const ex = ((v2 - mu / r) * rx - rv * vx) / mu;
+  const ey = ((v2 - mu / r) * ry - rv * vy) / mu;
+  const e = Math.hypot(ex, ey);
+  const bound = energy < 0;
+  return {
+    r, speed: Math.sqrt(v2), a, e, bound,
+    period: bound ? 2 * Math.PI * Math.sqrt((a * a * a) / mu) : null,
+    periapsis: bound ? a * (1 - e) : null,
+    apoapsis: bound ? a * (1 + e) : null,
+  };
+}
+
+/* Speed for a circular orbit, used to build the scenarios. */
+function circularSpeed(centralMass, r, G) {
+  return Math.sqrt(G * centralMass / r);
+}
+
+/* -- scenarios -------------------------------------------------------------
+   Two unit systems are in play, deliberately. The solar system uses AU, years
+   and solar masses, where G = 4*pi^2 exactly and Kepler's third law reads
+   T^2 = a^3 with no constant at all. Everything else uses G = 1, which is the
+   convention the published three-body solutions are written in. */
+
+const AU_G = 4 * Math.PI * Math.PI;
+
+function body(x, y, vx, vy, m, color, name, r) {
+  return { x, y, vx, vy, m, color, name, r: r || Math.max(2, 3 * Math.cbrt(m)) };
+}
+
+function circularSystem(centralMass, entries, G, color0) {
+  const out = [body(0, 0, 0, 0, centralMass, color0 || '#ffe066', 'Star', 9)];
+  let px = 0;
+  let py = 0;
+  for (const e of entries) {
+    const v = circularSpeed(centralMass, e.r, G) * (e.speedScale || 1);
+    const b = body(e.r, 0, 0, v, e.m, e.color, e.name, e.radius);
+    out.push(b);
+    px += b.m * b.vx;
+    py += b.m * b.vy;
+  }
+  // cancel the net momentum so the whole system does not drift off screen
+  out[0].vx = -px / centralMass;
+  out[0].vy = -py / centralMass;
+  return out;
+}
+
+const SCENARIOS = [
+  {
+    id: 'inner-solar',
+    name: 'The inner solar system',
+    G: AU_G,
+    dt: 0.0012,
+    view: 2.2,
+    note: 'AU, years and solar masses, so G = 4π² and Kepler’s third law is exactly T² = a³. Watch the predicted periods: Earth returns 1.00 years.',
+    make: () => circularSystem(1, [
+      { r: 0.387, m: 1.66e-7, name: 'Mercury', color: '#c9b9a8', radius: 3 },
+      { r: 0.723, m: 2.45e-6, name: 'Venus', color: '#e8c07a', radius: 4 },
+      { r: 1.0, m: 3.0e-6, name: 'Earth', color: '#6fb4ff', radius: 4 },
+      { r: 1.524, m: 3.2e-7, name: 'Mars', color: '#ff7a57', radius: 3.4 },
+    ], AU_G),
+  },
+  {
+    id: 'ellipse',
+    name: 'One elliptical orbit',
+    G: AU_G,
+    dt: 0.0012,
+    view: 3.2,
+    note: 'Launched at 70% of circular speed, so it falls inward and comes back: same orbit, every time, with periapsis where it moves fastest.',
+    make: () => circularSystem(1, [
+      { r: 1.6, m: 3e-6, name: 'Comet', color: '#39ff8f', radius: 4, speedScale: 0.7 },
+    ], AU_G),
+  },
+  {
+    id: 'figure-eight',
+    name: 'Figure-eight three-body',
+    G: 1,
+    dt: 0.0004,
+    soft: 1e-6,
+    view: 1.6,
+    note: 'Three equal masses chasing each other around the same figure-eight curve — a periodic solution of the three-body problem found by Chenciner and Montgomery in 1993. Its period is 6.3259.',
+    make: () => {
+      const v3x = -0.93240737;
+      const v3y = -0.86473146;
+      return [
+        body(-0.97000436, 0.24308753, -v3x / 2, -v3y / 2, 1, '#39ff8f', 'A', 6),
+        body(0.97000436, -0.24308753, -v3x / 2, -v3y / 2, 1, '#ff9130', 'B', 6),
+        body(0, 0, v3x, v3y, 1, '#6fb4ff', 'C', 6),
+      ];
+    },
+  },
+  {
+    id: 'binary',
+    name: 'Binary star with a planet',
+    G: 1,
+    dt: 0.0008,
+    view: 9,
+    note: 'Two stars orbiting their common centre of mass, with a planet far enough out to treat them as one. Closer in, there is no stable orbit at all.',
+    make: () => {
+      const sep = 1.4;
+      const m = 1;
+      const v = Math.sqrt(m / (2 * sep));   // each star, circular, about the barycentre
+      const out = [
+        body(-sep / 2, 0, 0, -v, m, '#ffe066', 'Star A', 8),
+        body(sep / 2, 0, 0, v, m, '#ff9130', 'Star B', 8),
+      ];
+      const rp = 6;
+      out.push(body(0, rp, -Math.sqrt(2 * m / rp), 0, 1e-4, '#6fb4ff', 'Planet', 4));
+      return out;
+    },
+  },
+  {
+    id: 'slingshot',
+    name: 'Gravity assist',
+    G: 1,
+    dt: 0.0006,
+    view: 7,
+    note: 'A probe crosses behind a moving planet and leaves faster than it arrived — the planet pays for it, by an amount too small to see. Watch the probe’s speed in the table.',
+    make: () => {
+      const out = [body(0, 0, 0, 0, 40, '#ffe066', 'Star', 10)];
+      const rp = 3.2;
+      const vp = Math.sqrt(40 / rp);
+      out.push(body(rp, 0, 0, vp, 0.8, '#6fb4ff', 'Planet', 6));
+      out.push(body(-5.5, -4.2, 1.35, 1.0, 1e-6, '#39ff8f', 'Probe', 3));
+      return out;
+    },
+  },
+  {
+    id: 'chaos',
+    name: 'Three stars, no plan',
+    G: 1,
+    dt: 0.0006,
+    view: 4,
+    note: 'Equal masses, arbitrary start. Two of them usually pair off and throw the third out — that is the generic outcome of the three-body problem, and which one leaves is not predictable by any shortcut.',
+    make: () => [
+      body(-1, 0.3, 0.25, 0.42, 1, '#39ff8f', 'A', 6),
+      body(1, -0.2, -0.16, -0.35, 1, '#ff9130', 'B', 6),
+      body(0.1, 1.2, -0.09, -0.07, 1, '#6fb4ff', 'C', 6),
+    ],
+  },
+  {
+    id: 'cluster',
+    name: 'A small cluster',
+    G: 1,
+    dt: 0.0004,
+    view: 6,
+    note: 'Twelve bodies dropped in a ring with a little rotation. It collapses, ejects a few, and settles into a knot of tight binaries — a star cluster’s life in thirty seconds.',
+    make: () => {
+      const out = [];
+      const n = 12;
+      for (let i = 0; i < n; i++) {
+        const th = (i / n) * Math.PI * 2;
+        const r = 2.4 + (i % 3) * 0.35;
+        const spin = 0.28;
+        out.push(body(r * Math.cos(th), r * Math.sin(th),
+          -spin * Math.sin(th), spin * Math.cos(th),
+          0.4 + (i % 4) * 0.12,
+          ['#39ff8f', '#ff9130', '#6fb4ff', '#ffe066', '#ff6fd8'][i % 5],
+          `S${i + 1}`, 4));
+      }
+      return out;
+    },
+  },
+];
+
+/* ==== UI ==== */
+
+const $ = (id) => document.getElementById(id);
+const canvas = $('sky');
+const ctx = canvas.getContext('2d', { alpha: false });
+
+let scenario = SCENARIOS[0];
+let bodies = [];
+let G = scenario.G;
+let dt = scenario.dt;
+let softening = SOFTENING;
+let running = true;
+let stepsPerFrame = 40;
+let simTime = 0;
+let steps = 0;
+let E0 = null;
+let L0 = null;
+let energyExtremes = null;
+let view = { cx: 0, cy: 0, scale: 200 };   // pixels per simulation unit
+let nextMass = 1e-2;
+let trailsOn = true;
+const TRAIL_MAX = 900;
+
+function resetScenario(s, keepView) {
+  scenario = s;
+  G = s.G;
+  dt = s.dt;
+  softening = s.soft === undefined ? SOFTENING : s.soft;
+  bodies = s.make().map((b) => ({ ...b, trail: [] }));
+  simTime = 0;
+  steps = 0;
+  const e = totalEnergy(bodies, G, softening);
+  E0 = e.total;
+  L0 = angularMomentum(bodies);
+  energyExtremes = { min: e.total, max: e.total };
+  if (!keepView) fitView();
+  syncDtSlider();
+  render();
+}
+
+/* ---- view transform ---- */
+
+const toScreenX = (x) => (x - view.cx) * view.scale + canvas.width / 2;
+const toScreenY = (y) => canvas.height / 2 - (y - view.cy) * view.scale;
+const toWorldX = (px) => (px - canvas.width / 2) / view.scale + view.cx;
+const toWorldY = (py) => (canvas.height / 2 - py) / view.scale + view.cy;
+
+function fitView() {
+  if (!bodies.length) { view = { cx: 0, cy: 0, scale: 200 }; return; }
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minY = Infinity;
+  let maxY = -Infinity;
+  for (const b of bodies) {
+    minX = Math.min(minX, b.x); maxX = Math.max(maxX, b.x);
+    minY = Math.min(minY, b.y); maxY = Math.max(maxY, b.y);
+  }
+  const pad = 1.25;
+  const w = Math.max(1e-6, (maxX - minX) * pad);
+  const h = Math.max(1e-6, (maxY - minY) * pad);
+  view.cx = (minX + maxX) / 2;
+  view.cy = (minY + maxY) / 2;
+  view.scale = Math.min(canvas.width / w, canvas.height / h);
+  if (!Number.isFinite(view.scale) || view.scale <= 0) view.scale = 200;
+}
+
+/* ---- drawing ---- */
+
+function render() {
+  const w = canvas.width;
+  const h = canvas.height;
+  ctx.fillStyle = '#04070a';
+  ctx.fillRect(0, 0, w, h);
+
+  if ($('com-check').checked && bodies.length) {
+    const com = centreOfMass(bodies);
+    view.cx = com.x;
+    view.cy = com.y;
+  }
+
+  if (trailsOn) {
+    for (const b of bodies) {
+      if (b.trail.length < 2) continue;
+      ctx.strokeStyle = b.color;
+      ctx.lineWidth = 1;
+      ctx.globalAlpha = 0.42;
+      ctx.beginPath();
+      for (let i = 0; i < b.trail.length; i += 2) {
+        const x = toScreenX(b.trail[i]);
+        const y = toScreenY(b.trail[i + 1]);
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  const showLabels = $('labels-check').checked;
+  for (const b of bodies) {
+    const x = toScreenX(b.x);
+    const y = toScreenY(b.y);
+    const r = Math.max(1.5, b.r);
+    const glow = ctx.createRadialGradient(x, y, 0, x, y, r * 3.2);
+    glow.addColorStop(0, b.color);
+    glow.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.globalAlpha = 0.33;
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(x, y, r * 3.2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = b.color;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+    if (showLabels && b.name) {
+      ctx.fillStyle = 'rgba(217,251,232,0.75)';
+      ctx.font = '11px Consolas, monospace';
+      ctx.fillText(b.name, x + r + 5, y - r - 2);
+    }
+  }
+
+  if (drag) {
+    const sx = toScreenX(drag.x0);
+    const sy = toScreenY(drag.y0);
+    ctx.strokeStyle = '#39ff8f';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.moveTo(sx, sy);
+    ctx.lineTo(drag.px, drag.py);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    ctx.arc(sx, sy, Math.max(2, 3 * Math.cbrt(nextMass) * 1), 0, Math.PI * 2);
+    ctx.fillStyle = '#39ff8f';
+    ctx.fill();
+  }
+  renderStats();
+}
+
+function fmt(x, digits = 3) {
+  if (!Number.isFinite(x)) return '—';
+  const a = Math.abs(x);
+  if (a !== 0 && (a < 1e-3 || a >= 1e5)) return x.toExponential(2);
+  return x.toFixed(digits);
+}
+
+function renderStats() {
+  const e = totalEnergy(bodies, G, softening);
+  const p = totalMomentum(bodies);
+  const l = angularMomentum(bodies);
+  if (energyExtremes) {
+    energyExtremes.min = Math.min(energyExtremes.min, e.total);
+    energyExtremes.max = Math.max(energyExtremes.max, e.total);
+  }
+  const drift = E0 ? Math.abs((e.total - E0) / E0) : 0;
+  const tiles = [
+    ['Bodies', String(bodies.length)],
+    ['Time', `${fmt(simTime, 3)} ${scenario.G === AU_G ? 'yr' : 'u'}`],
+    ['Steps', steps.toLocaleString('en-US')],
+    ['Energy', fmt(e.total, 6)],
+    ['Energy drift', `${(drift * 100).toFixed(4)}%`],
+    ['Angular momentum', fmt(l, 6)],
+    ['Softening ε', softening.toExponential(0)],
+  ];
+  $('stat-host').innerHTML = tiles.map(([label, value]) => `
+    <div class="net-tile">
+      <div class="net-tile-label">${label}</div>
+      <div class="net-tile-value mono">${value}</div>
+    </div>`).join('');
+
+  const span = energyExtremes ? energyExtremes.max - energyExtremes.min : 0;
+  const note = $('conserve-note');
+  if (!bodies.length) {
+    note.textContent = 'Empty space. Drag to launch something.';
+  } else {
+    note.innerHTML = `Total energy has stayed inside a band of ${fmt(Math.abs(E0) ? span / Math.abs(E0) * 100 : 0, 4)}%
+      of its starting value over ${steps.toLocaleString('en-US')} steps, and it will keep oscillating
+      inside a band rather than drifting: that is what "symplectic" buys.
+      Momentum ${fmt(p.mag, 6)}, angular momentum drift ${fmt(L0 ? Math.abs((l - L0) / L0) * 100 : 0, 4)}%.`;
+  }
+
+  if (bodies.length >= 2) {
+    let heaviest = bodies[0];
+    for (const b of bodies) if (b.m > heaviest.m) heaviest = b;
+    const rows = bodies.filter((b) => b !== heaviest).slice(0, 12).map((b) => {
+      const el = orbitalElements(heaviest, b, G);
+      if (!el) return '';
+      return `<tr>
+        <td style="color:${b.color}">${b.name || '—'}</td>
+        <td>${fmt(el.r)}</td>
+        <td>${fmt(el.speed)}</td>
+        <td>${el.bound ? fmt(el.a) : '—'}</td>
+        <td>${fmt(el.e)}</td>
+        <td>${el.bound ? fmt(el.period) : '<span class="ol-escape">escaping</span>'}</td>
+      </tr>`;
+    }).join('');
+    $('elements-table').innerHTML = `<thead><tr>
+        <th>Body</th><th>Distance</th><th>Speed</th><th>a</th><th>e</th><th>Predicted period</th>
+      </tr></thead><tbody>${rows}</tbody>`;
+  } else {
+    $('elements-table').innerHTML = '';
+  }
+}
+
+/* ---- the loop ---- */
+
+function advance(n) {
+  for (let k = 0; k < n; k++) {
+    stepVerlet(bodies, dt, G, softening);
+    simTime += dt;
+    steps++;
+  }
+  if (trailsOn) {
+    for (const b of bodies) {
+      b.trail.push(b.x, b.y);
+      if (b.trail.length > TRAIL_MAX * 2) b.trail.splice(0, b.trail.length - TRAIL_MAX * 2);
+    }
+  }
+}
+
+function frame() {
+  requestAnimationFrame(frame);
+  if (running && bodies.length) advance(stepsPerFrame);
+  render();
+}
+
+function setRunning(on) {
+  running = on;
+  $('run-btn').innerHTML = on ? '&#10073;&#10073; Pause' : '&#9654; Run';
+}
+
+/* ---- input ---- */
+
+let drag = null;
+let pan = null;
+
+canvas.addEventListener('pointerdown', (ev) => {
+  canvas.setPointerCapture(ev.pointerId);
+  const rect = canvas.getBoundingClientRect();
+  const px = (ev.clientX - rect.left) * (canvas.width / rect.width);
+  const py = (ev.clientY - rect.top) * (canvas.height / rect.height);
+  if (ev.button === 2) {
+    pan = { px, py, cx: view.cx, cy: view.cy };
+    return;
+  }
+  drag = { x0: toWorldX(px), y0: toWorldY(py), px, py };
+});
+
+canvas.addEventListener('pointermove', (ev) => {
+  const rect = canvas.getBoundingClientRect();
+  const px = (ev.clientX - rect.left) * (canvas.width / rect.width);
+  const py = (ev.clientY - rect.top) * (canvas.height / rect.height);
+  if (pan) {
+    view.cx = pan.cx - (px - pan.px) / view.scale;
+    view.cy = pan.cy + (py - pan.py) / view.scale;
+    return;
+  }
+  if (drag) { drag.px = px; drag.py = py; }
+});
+
+function releaseDrag() {
+  if (!drag) return;
+  const vx = (toWorldX(drag.px) - drag.x0) * 0.9;
+  const vy = (toWorldY(drag.py) - drag.y0) * 0.9;
+  const b = body(drag.x0, drag.y0, vx, vy, nextMass,
+    ['#39ff8f', '#ff9130', '#6fb4ff', '#ffe066', '#ff6fd8'][bodies.length % 5],
+    `B${bodies.length + 1}`);
+  b.trail = [];
+  bodies.push(b);
+  // adding a body changes the system, so the conservation baseline restarts
+  const e = totalEnergy(bodies, G, softening);
+  E0 = e.total;
+  L0 = angularMomentum(bodies);
+  energyExtremes = { min: e.total, max: e.total };
+  drag = null;
+}
+
+canvas.addEventListener('pointerup', () => { releaseDrag(); pan = null; });
+canvas.addEventListener('pointercancel', () => { drag = null; pan = null; });
+canvas.addEventListener('contextmenu', (ev) => ev.preventDefault());
+canvas.addEventListener('wheel', (ev) => {
+  ev.preventDefault();
+  const rect = canvas.getBoundingClientRect();
+  const px = (ev.clientX - rect.left) * (canvas.width / rect.width);
+  const py = (ev.clientY - rect.top) * (canvas.height / rect.height);
+  const wx = toWorldX(px);
+  const wy = toWorldY(py);
+  view.scale *= ev.deltaY > 0 ? 0.85 : 1.18;
+  // keep the point under the cursor where it was
+  view.cx = wx - (px - canvas.width / 2) / view.scale;
+  view.cy = wy + (py - canvas.height / 2) / view.scale;
+}, { passive: false });
+
+/* ---- controls ---- */
+
+$('preset-select').innerHTML = SCENARIOS.map((s, i) => `<option value="${i}">${s.name}</option>`).join('');
+$('preset-select').addEventListener('change', (e) => {
+  resetScenario(SCENARIOS[Number(e.target.value)]);
+  setRunning(true);
+});
+$('run-btn').addEventListener('click', () => setRunning(!running));
+$('step-btn').addEventListener('click', () => { setRunning(false); advance(1); render(); });
+$('reset-btn').addEventListener('click', () => { resetScenario(scenario); setRunning(true); });
+$('clear-btn').addEventListener('click', () => {
+  bodies = [];
+  simTime = 0;
+  steps = 0;
+  E0 = 0;
+  L0 = 0;
+  energyExtremes = null;
+  render();
+});
+$('fit-btn').addEventListener('click', () => { fitView(); render(); });
+$('speed-slider').addEventListener('input', (e) => {
+  stepsPerFrame = Number(e.target.value);
+  $('speed-value').textContent = e.target.value;
+});
+/* The timestep slider is logarithmic: the useful range spans three orders of
+   magnitude, and a linear slider would spend most of its travel on values that
+   blow the integrator up. */
+function dtFromSlider(v) {
+  return scenario.dt * Math.pow(10, (v - 30) / 30);
+}
+function syncDtSlider() {
+  dt = dtFromSlider(Number($('dt-slider').value));
+  $('dt-value').textContent = dt.toExponential(1);
+}
+$('dt-slider').addEventListener('input', syncDtSlider);
+function syncMassSlider() {
+  nextMass = Math.pow(10, Number($('mass-slider').value) / 10);
+  $('mass-value').textContent = nextMass.toExponential(1);
+}
+$('mass-slider').addEventListener('input', syncMassSlider);
+$('trails-check').addEventListener('change', (e) => {
+  trailsOn = e.target.checked;
+  if (!trailsOn) for (const b of bodies) b.trail = [];
+});
+
+/* ---- headless hook ---- */
+
+window.__orbit = {
+  stepVerlet, accelerations, totalEnergy, angularMomentum, orbitalElements, SCENARIOS,
+  /* Advance in frame-sized chunks rather than one leap: trails gain a point
+     per chunk, exactly as they do when the simulation is running, so a headless
+     screenshot shows the same paths a viewer would see. One big call would draw
+     three bare dots. */
+  step(n = 1) {
+    let left = n;
+    while (left > 0) {
+      const chunk = Math.min(left, Math.max(1, stepsPerFrame));
+      advance(chunk);
+      left -= chunk;
+    }
+    render();
+  },
+  run(on) { setRunning(!!on); },
+  load(id) {
+    const s = SCENARIOS.find((x) => x.id === id);
+    if (s) { $('preset-select').value = String(SCENARIOS.indexOf(s)); resetScenario(s); }
+  },
+  get state() {
+    return {
+      scenario: scenario.id, steps, simTime, G, dt,
+      energy: totalEnergy(bodies, G, softening).total, L: angularMomentum(bodies),
+      softening,
+      bodies: bodies.map((b) => ({ name: b.name, x: b.x, y: b.y, vx: b.vx, vy: b.vy, m: b.m })),
+    };
+  },
+};
+
+/* ---- boot ---- */
+
+syncMassSlider();
+resetScenario(SCENARIOS[0]);
+setRunning(true);
+requestAnimationFrame(frame);
+</script>
+<!-- Slippy Deck: floating Slippy TV + jukebox player. Renders nothing unless admin.slippylabs.com/whoami confirms a signed-in account. -->
+<script defer src="https://slippylabs.com/deck/deck.js"></script>
+<!-- Slippy Labs sitewide privacy link. Self-contained on purpose: these sites
+     share no CSS, so it carries its own styles and inherits the page's text
+     colour instead of assuming a palette. position/z-index are load bearing --
+     the HUD theme's .starfield/.scanlines are fixed at z-index 0-1 and would
+     paint straight over an unpositioned footer.
+     The .page-wrap trim below is what keeps the bar on the first screen. -->
+<div class="sl-legal"><a href="https://slippylabs.com/privacy.html">Privacy</a></div>
+<style>
+.sl-legal{box-sizing:border-box;position:relative;z-index:3;height:64px;display:flex;align-items:center;justify-content:center;margin:0;padding:0 12px;font-family:"Consolas","SFMono-Regular",Menlo,Monaco,"Courier New",monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;opacity:.5}
+.sl-legal a{color:inherit;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 14px}
+.sl-legal a:hover,.sl-legal a:focus-visible{text-decoration:underline;opacity:1}
+/* This page centres .page-wrap at min-height:100vh, which would push the bar a
+   whole screen below the fold. Give back exactly the bar height instead of
+   adding a scrollbar to a page that had none. */
+.page-wrap{min-height:calc(100vh - 64px)}
+</style>
+</body>
+</html>
